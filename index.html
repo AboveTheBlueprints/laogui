@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>老龟</title>
+<style>
+  body { margin: 0; background: #eef0e2; color: #33382a; font-family: "PingFang SC", "Noto Sans SC", sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 24px 18px 300px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 14px; }
+  .open p { margin: 0 0 10px; line-height: 1.7; }
+  .open .src { color: #7c8070; font-size: 13px; margin-top: 14px; }
+  #log { margin-top: 18px; line-height: 1.75; }
+  #log .ln { margin: 0 0 8px; }
+  #log .ln b { color: #5d6a3c; font-weight: 600; }
+  #log .gap { height: 12px; }
+  #log .last { background: #e3e8cf; border-radius: 6px; padding: 4px 8px; margin-left: -8px; margin-right: -8px; }
+  #bar { position: fixed; left: 0; right: 0; bottom: 0; background: #e6e9d6; border-top: 1px solid #c8cdb0; }
+  #bar .in { max-width: 640px; margin: 0 auto; padding: 10px 18px 14px; }
+  #ask { margin-bottom: 6px; font-weight: 600; color: #4b5530; }
+  .row { margin: 4px 0; }
+  .row .k { display: inline-block; width: 4.5em; color: #6c725c; font-size: 14px; }
+  button { font: inherit; font-size: 15px; padding: 6px 12px; margin: 0 6px 6px 0; border: 1px solid #93a070; background: #fafbf4; color: #33382a; border-radius: 6px; cursor: pointer; }
+  button:hover { background: #fff; }
+  button.on { background: #5d6a3c; color: #fff; border-color: #5d6a3c; }
+  button.go { border-width: 2px; font-weight: 600; }
+  button.quiet { border-color: #c2c8ab; color: #858b74; font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>老龟</h1>
+  <div class="open">
+    <p>一七八〇年三月，你从苏塞克斯把一只老陆龟接到自己园子里。它在你姑妈家朝南的小院里活了三十多年。姑妈是冬天走的。</p>
+    <p>姑妈院里那一大丛獐耳细辛，你也连土挖了来，栽在你园子朝南的墙下。</p>
+    <p>姑妈家的女佣跟你说："老太太一走过来，它就笨手笨脚、急急忙忙地朝她爬。生人它理都不理。"又说："老太太每天一大早挎着篮子出去看它。"</p>
+    <p>从四月二十到十月二十，你每隔十天去园子里看它一回，一共十九回。每一回挑几时去、带什么、怎么给，或者这回不去。</p>
+  </div>
+  <div id="log"></div>
+</main>
+<div id="bar"><div class="in">
+  <div id="ask"></div>
+  <div id="pick"></div>
+  <div id="btns"></div>
+</div></div>
+<script src="sim.js"></script>
+<script>
+const qs = new URLSearchParams(location.search);
+let seed = parseInt(qs.get('seed')) || (1 + Math.floor(Math.random() * 99999));
+let acts = [];
+try { const s = JSON.parse(localStorage.getItem('laogui') || 'null'); if (s && !qs.get('seed')) { seed = s.seed; acts = s.acts; } } catch (e) {}
+const pick = { tm: null, fd: null, hw: null };
+const OPTS = { tm: ['早上', '中午', '下午'], fd: ['蒲公英', '莴苣', '白菜叶'], hw: ['手里', '放下'] };
+const KEY = { tm: '几时去', fd: '带什么', hw: '怎么给' };
+const HINT = { '手里': '手里（蹲下等它）', '放下': '放下（人退开）' };
+const log = document.getElementById('log'), ask = document.getElementById('ask'), pk = document.getElementById('pick'), btns = document.getElementById('btns');
+function save() { try { localStorage.setItem('laogui', JSON.stringify({ seed, acts })); } catch (e) {} }
+function bt(text, cls, fn) { const b = document.createElement('button'); b.textContent = text; if (cls) b.className = cls; b.onclick = fn; return b; }
+function render() {
+  const lines = LG.play(seed, acts);
+  log.innerHTML = '';
+  lines.forEach((l, i) => {
+    if (l === '') { const g = document.createElement('div'); g.className = 'gap'; log.appendChild(g); return; }
+    const d = document.createElement('p'); d.className = 'ln';
+    const m = l.match(/^(【[^】]+】)(.*)$/);
+    if (m) { const b = document.createElement('b'); b.textContent = m[1]; d.appendChild(b); d.appendChild(document.createTextNode(m[2])); }
+    else d.textContent = l;
+    log.appendChild(d);
+  });
+  // 刚出来的那一回（或冬天加第二年那几行）标一下底色
+  const ps = log.querySelectorAll('.ln');
+  if (acts.length && acts.length <= LG.N && ps.length) ps[ps.length - 1].classList.add('last');
+  pk.innerHTML = ''; btns.innerHTML = '';
+  const n = acts.length;
+  if (n > LG.N) {
+    ask.textContent = '';
+    btns.appendChild(bt('再过一个夏天（换一年的天气）', 'go', () => { seed = 1 + Math.floor(Math.random() * 99999); acts = []; save(); render(); scrollTo(0, 0); }));
+    window.scrollTo(0, document.body.scrollHeight);
+    return;
+  }
+  if (n === LG.N) {
+    // 冬天：十一月那一行出来了
+    ask.textContent = '冬天过去了。第二年四月二十，你再去一回：';
+  } else {
+    ask.textContent = '第 ' + (n + 1) + ' 回（共 ' + LG.N + ' 回）：' + LG.DATES[n];
+  }
+  for (const k of ['tm', 'fd', 'hw']) {
+    const r = document.createElement('div'); r.className = 'row';
+    const s = document.createElement('span'); s.className = 'k'; s.textContent = KEY[k]; r.appendChild(s);
+    for (const o of OPTS[k]) r.appendChild(bt(HINT[o] || o, pick[k] === o ? 'on' : '', () => { pick[k] = o; render(); }));
+    pk.appendChild(r);
+  }
+  const ready = pick.tm && pick.fd && pick.hw;
+  const go = bt(ready ? '去' : '去（先把三样挑好）', 'go', () => { if (!ready) return; acts.push(pick.tm + ' ' + pick.fd + ' ' + pick.hw); save(); render(); });
+  if (!ready) go.disabled = true;
+  btns.appendChild(go);
+  btns.appendChild(bt('这回不去', '', () => { acts.push('不去'); save(); render(); }));
+  if (n) btns.appendChild(bt('重来', 'quiet', () => { if (confirm('从四月二十重来？这一年的天气不变。')) { acts = []; save(); render(); scrollTo(0, 0); } }));
+  if (n) window.scrollTo(0, document.body.scrollHeight);
+}
+render();
+</script>
+</body>
+</html>
