@@ -35,7 +35,7 @@ const LG = (() => {
     const eager = new Array(N + 1).fill(false);
     for (let i = 0; i < N; i++) if (weather[i + 1] === '雨' && weather[i] !== '雨') eager[i] = true;
 
-    let S = 1.0, F = 0.0, stopped = false, fed = 0;
+    let S = 1.0, F = 0.0, stopped = false, fed = 0, placed = 0;
     const mine = {};
     const out = [];
     const ea = (tm, i) => (tm === '早上' && eager[i]);
@@ -68,7 +68,7 @@ const LG = (() => {
         out.push(line.join('')); continue;
       }
       if (tm === '早上' && COLD.has(i)) {
-        line.push('早上还凉，它在土里只露出半个壳。你' + (hw === '手里' ? '蹲着等了一阵，' : '') + '它没动。');
+        line.push('早上还凉，它在土里只露出半个壳。' + (hw === '手里' ? '你蹲着等了一阵，' : '你把' + fd + '放在洞口边。') + '它没动。');
         if (hw === '放下') line.push(APP[i] > 0.3 ? '中午你从窗户看，它出来把' + fd + '吃了。' : fd + '到傍晚还在那儿，蔫了。');
         out.push(line.join('')); continue;
       }
@@ -117,7 +117,7 @@ const LG = (() => {
         else if (pull >= 0.25) { F = Math.min(1.0, F + 0.06); line.push('它抬头朝你这边看了看，没过来。' + why + '你蹲到腿麻，' + fd + '还在手里。'); }
         else { F = Math.min(1.0, F + 0.02); line.push('它理都不理，在那儿晒它的太阳。' + why + '你蹲到腿麻，' + fd + '还在手里。'); }
       } else {
-        if (eat >= 0.4) line.push('你走开以后，它慢慢爬过去，把' + fd + '吃了' + (ea(tm, i) ? '，吃得很急，踮着脚。' : '。'));
+        if (eat >= 0.4) { placed += 1; line.push('你走开以后，它慢慢爬过去，把' + fd + '吃了' + (ea(tm, i) ? '，吃得很急，踮着脚。' : '。')); }
         else line.push(fd + '它闻了闻，没吃完。');
       }
       if (ea(tm, i) && pull < 0.55 && hw === '手里') line.push('它今天早上在草里踮着脚，吃得很急。');
@@ -125,16 +125,19 @@ const LG = (() => {
     }
     out.push('');
     if (F >= 0.5) out.push('【十一月初】它开始挖过冬的洞，挖在你平常蹲的那块地方旁边。挖了十来天，钻进去了。');
+    else if (placed >= 8 && placed > fed) out.push('【十一月初】它开始挖过冬的洞，挖在你往常放菜的那块地上。挖了十来天，钻进去了。');
     else if (S >= 0.4) out.push('【十一月初】它开始挖过冬的洞，挖在墙下那丛獐耳细辛旁边。挖了十来天，钻进去了。');
     else out.push('【十一月初】它开始挖过冬的洞，挖在墙根朝南那片烂泥里。挖了十来天，钻进去了。');
-    return { out, st: { S, F, fed, stopped } };
+    return { out, st: { S, F, fed, stopped, placed } };
   }
 
   function spring(st, t) {
     const S = st.S * 0.9, F = st.F * 0.85;
+    const spot = st.placed >= 8 && st.placed > st.fed && F < 0.45;
     const out = ['【第二年四月二十】晴，这天暖和得早。它醒了，在洞口边上晒太阳，还不怎么吃东西。'];
     if (t === '不去') {
       if (F > S * 0.6) out.push('你没下去。从窗户看见它爬到你平常蹲的那块地方，待了一阵。');
+      else if (spot) out.push('你没下去。从窗户看见它爬到你往常放菜的那块地上，低头找了找，待了一阵。');
       else out.push('你没下去。快十点它爬到墙下那丛獐耳细辛底下，伸着脖子朝外看。');
       return out;
     }
@@ -142,10 +145,13 @@ const LG = (() => {
     const match = matchOf(tm, fd, hw);
     if (hw === '放下') {
       if (F >= 0.45) out.push('它朝你这边爬过来，先拿鼻子碰了碰你的鞋尖。你退开，' + fd + '它只咬了一口。');
+      else if (spot) out.push('你还没退开，它已经朝那块地上爬了。' + fd + '它只咬了一口。');
       else out.push('你退开以后，它慢慢爬过去，' + fd + '只咬了一口。');
       return out;
     }
     if (F >= 0.45) out.push('你一蹲下，它就笨手笨脚、急急忙忙地朝你爬过来，先拿鼻子碰了碰你的鞋尖。' + fd + '它只咬了一口。');
+    else if (spot) out.push('它没朝你爬，先爬到你往常放菜的那块地上，低头找了找，地上什么也没有。它回头看你手里的' + fd + '，看了一会儿，没过来。');
+    else if (S * match >= 0.4 && st.fed >= 8) out.push('你一蹲下，它就笨手笨脚、急急忙忙地朝你爬过来。爬到离你一步远，停下了，伸长脖子朝你脸上看。看了好一会儿。这回它没马上走，又朝你手里的' + fd + '伸了伸脖子，到底没吃，掉头回洞口去了。');
     else if (S * match >= 0.4) out.push('你一蹲下，它就笨手笨脚、急急忙忙地朝你爬过来。爬到离你一步远，停下了，伸长脖子朝你脸上看。看了好一会儿，掉头回洞口去了。');
     else if (F >= 0.2) out.push('它朝你这边爬了两步，又停下了。你蹲了好一会儿，' + fd + '还在手里。');
     else out.push('它理都不理，在洞口晒它的太阳。你蹲了好一会儿，' + fd + '还在手里。');
